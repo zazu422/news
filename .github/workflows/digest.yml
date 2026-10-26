@@ -1,0 +1,37 @@
+name: Update news
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # every hour
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: news-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build English page
+        run: python news_digest_free.py --out index.html --switch bn.html --cache ai_cache.json --no-open
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - name: Build Bangla page
+        run: python news_digest_free.py --lang bn --out bn.html --switch index.html --cache ai_cache.json --no-open
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - name: Save pages
+        run: |
+          git config user.name "news-bot"
+          git config user.email "news-bot@users.noreply.github.com"
+          git add index.html bn.html ai_cache.json
+          git commit -m "Update news" || exit 0
+          git push
